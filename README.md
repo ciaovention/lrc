@@ -2,7 +2,7 @@
 
 A visual timeline-based editor for LRC (Lyrics) files, allowing you to synchronize lyrics with audio tracks. Perfect for creating karaoke files, music videos, or dubbing projects.
 
-![LRC Editor Screenshot](screenshot.png) *(Note: You'll need to add your own screenshot)*
+![LRC Editor Screenshot](screenshot.png)
 
 ## Features
 
