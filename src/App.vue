@@ -121,6 +121,35 @@ export default {
     window.addEventListener('resize', this.updateTimelineWidth);
     window.addEventListener('mousemove', this.onDrag);
     window.addEventListener('mouseup', this.stopDrag);
+    
+    // Set up Electron menu event listeners if in Electron environment
+    if (window.electron) {
+      window.electron.onMenuOpenLrc(() => {
+        this.openLrcFileElectron();
+      });
+      
+      window.electron.onMenuOpenAudio(() => {
+        this.openAudioFileElectron();
+      });
+      
+      window.electron.onMenuSaveLrc(() => {
+        this.saveLrcElectron();
+      });
+      
+      window.electron.onMenuPlayPause(() => {
+        if (this.$refs.audioPlayer) {
+          if (this.$refs.audioPlayer.paused) {
+            this.playAudio();
+          } else {
+            this.pauseAudio();
+          }
+        }
+      });
+      
+      window.electron.onMenuAddLyric(() => {
+        this.addNewLyric();
+      });
+    }
   },
   beforeDestroy() {
     window.removeEventListener('resize', this.updateTimelineWidth);
@@ -129,6 +158,15 @@ export default {
     
     if (this.wavesurfer) {
       this.wavesurfer.destroy();
+    }
+    
+    // Clean up Electron event listeners
+    if (window.electron) {
+      window.electron.removeAllListeners('menu-open-lrc');
+      window.electron.removeAllListeners('menu-open-audio');
+      window.electron.removeAllListeners('menu-save-lrc');
+      window.electron.removeAllListeners('menu-play-pause');
+      window.electron.removeAllListeners('menu-add-lyric');
     }
   },
   methods: {
@@ -147,6 +185,20 @@ export default {
         this.parseLrcContent(content);
       };
       reader.readAsText(file);
+    },
+    
+    // Electron-specific method to open LRC file using native dialog
+    async openLrcFileElectron() {
+      if (!window.electron) return;
+      
+      try {
+        const result = await window.electron.openLrcFile();
+        if (result && result.content) {
+          this.parseLrcContent(result.content);
+        }
+      } catch (error) {
+        console.error('Error opening LRC file:', error);
+      }
     },
     parseLrcContent(content) {
       // Reset lyrics array
@@ -195,6 +247,34 @@ export default {
           this.initWaveform();
         };
       });
+    },
+    
+    // Electron-specific method to open audio file using native dialog
+    async openAudioFileElectron() {
+      if (!window.electron) return;
+      
+      try {
+        const result = await window.electron.openAudioFile();
+        if (result && result.filePath) {
+          // In Electron, we can use the file path directly
+          this.audioSrc = 'file://' + result.filePath;
+          
+          // Once the audio is loaded, get its duration
+          this.$nextTick(() => {
+            const audio = this.$refs.audioPlayer;
+            audio.onloadedmetadata = () => {
+              this.duration = audio.duration;
+              // Adjust timeline duration based on audio length
+              this.timelineDuration = Math.min(120, Math.ceil(audio.duration / 30) * 30);
+              
+              // Initialize waveform
+              this.initWaveform();
+            };
+          });
+        }
+      } catch (error) {
+        console.error('Error opening audio file:', error);
+      }
     },
     initWaveform() {
       // Ensure we have both the audio and container
@@ -413,19 +493,51 @@ export default {
         lrcContent += `[${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${hundredths.toString().padStart(2, '0')}]${lyric.text}\n`;
       });
       
-      // Create a blob and download link
-      const blob = new Blob([lrcContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
+      // For web browser environment
+      if (!window.electron) {
+        // Create a blob and download link
+        const blob = new Blob([lrcContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'lyrics.lrc';
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        // For Electron environment, use the native save dialog
+        this.saveLrcElectron(lrcContent);
+      }
+    },
+    
+    // Electron-specific method to save LRC file using native dialog
+    async saveLrcElectron(content) {
+      if (!window.electron) return;
       
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'lyrics.lrc';
-      document.body.appendChild(a);
-      a.click();
+      if (!content) {
+        content = '';
+        // Generate LRC content
+        this.lyrics.forEach(lyric => {
+          const minutes = Math.floor(lyric.time / 60);
+          const seconds = Math.floor(lyric.time % 60);
+          const hundredths = Math.floor((lyric.time % 1) * 100);
+          
+          content += `[${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${hundredths.toString().padStart(2, '0')}]${lyric.text}\n`;
+        });
+      }
       
-      // Clean up
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      try {
+        const result = await window.electron.saveLrcFile(content);
+        if (result && result.success) {
+          console.log('LRC file saved successfully:', result.filePath);
+        }
+      } catch (error) {
+        console.error('Error saving LRC file:', error);
+      }
     }
   }
 };

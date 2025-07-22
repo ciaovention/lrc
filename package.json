@@ -2,11 +2,19 @@
   "name": "lrc-editor",
   "version": "1.0.0",
   "description": "A Vue 2 based LRC file editor with timeline capabilities",
-  "main": "index.js",
+  "author": "LRC Editor Team <info@lrceditor.com>",
+  "main": "electron/main.js",
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "electron:serve": "vue-cli-service serve --port 8080 & sleep 5 && cross-env ELECTRON_START_URL=http://localhost:8080 electron .",
+    "electron:build": "vue-cli-service build && electron-builder",
+    "electron:build:mac": "vue-cli-service build && electron-builder --mac --publish=never",
+    "electron:build:win": "vue-cli-service build && electron-builder --win --publish=never",
+    "electron:build:linux": "vue-cli-service build && electron-builder --linux --publish=never",
+    "build-app": "npm run build && npx electron-builder --dir --publish=never",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "vue": "^2.6.14",
@@ -19,8 +27,42 @@
     "@vue/cli-plugin-eslint": "^4.5.15",
     "@vue/cli-service": "^4.5.15",
     "babel-eslint": "^10.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^24.1.2",
+    "electron-builder": "^24.4.0",
     "eslint": "^6.8.0",
     "eslint-plugin-vue": "^6.2.2",
     "vue-template-compiler": "^2.6.14"
+  },
+  "build": {
+    "appId": "com.lrceditor.app",
+    "productName": "LRC Editor",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "compression": "normal",
+    "asar": true,
+    "electronDownload": {
+      "strictSSL": false
+    },
+    "mac": {
+      "category": "public.app-category.music",
+      "target": "dir",
+      "icon": null,
+      "identity": null
+    },
+    "win": {
+      "target": "dir",
+      "icon": null
+    },
+    "linux": {
+      "target": "dir",
+      "category": "Audio",
+      "icon": null
+    }
   }
 }
